@@ -1,14 +1,14 @@
 // src/text/msdfBuilder.ts
+/// <reference types="three" />
 const THREE = (window as any).THREE;
 
 export function buildMSDFMeshFromShaping(
-  shapingResult,
-  atlasJson,
-  atlasTexture,
+  shapingResult: any,
+  atlasJson: any,
+  atlasTexture: any,
   scale = 1.0, // Default to 1.0, let caller handle world units
   color = 0xffffff,
-  align = "center",
-  isGlow = false,
+  align = "center"
 ) {
   // Normalize input to array of lines
   const lines = Array.isArray(shapingResult) ? shapingResult : [shapingResult];
@@ -247,83 +247,5 @@ export function buildMSDFMeshFromShaping(
 
   const mesh = new THREE.Mesh(geom, mat);
 
-  if (!isGlow) {
-    return mesh;
-  }
-
-  // Create an Aura Plane matched to text size
-  let w = 1.0;
-  let h = 0.3 * scale;
-  let cx = 0;
-  let cy = 0;
-
-  if (positions.length > 0) {
-    // We already aligned vertices earlier, so we can calculate bounds directly
-    let minX = Infinity,
-      maxX = -Infinity;
-    let minY = Infinity,
-      maxY = -Infinity;
-    for (let i = 0; i < positions.length; i += 3) {
-      if (positions[i] < minX) minX = positions[i];
-      if (positions[i] > maxX) maxX = positions[i];
-      if (positions[i + 1] < minY) minY = positions[i + 1];
-      if (positions[i + 1] > maxY) maxY = positions[i + 1];
-    }
-    w = (maxX - minX) * 1.6; // expand width slightly past letters
-    h = Math.max((maxY - minY) * 1.5, 0.4 * scale); // expand height safely
-    cx = (minX + maxX) / 2;
-    cy = (minY + maxY) / 2;
-  }
-
-  const auraCanvas = document.createElement("canvas");
-  auraCanvas.width = 512;
-  auraCanvas.height = 128;
-  const ctx = auraCanvas.getContext("2d");
-  if (ctx) {
-    ctx.clearRect(0, 0, 512, 128);
-    const cyCanvas = 64;
-    ctx.save();
-    ctx.lineCap = "round";
-
-    // broad soft blue
-    ctx.shadowBlur = 40;
-    ctx.shadowColor = "rgba(0, 120, 255, 1)";
-    ctx.lineWidth = 40;
-    ctx.strokeStyle = "rgba(0, 150, 255, 0.5)";
-    ctx.beginPath();
-    ctx.moveTo(80, cyCanvas);
-    ctx.lineTo(512 - 80, cyCanvas);
-    ctx.stroke();
-    ctx.stroke();
-
-    // bright cyan core
-    ctx.shadowBlur = 20;
-    ctx.shadowColor = "rgba(80, 220, 255, 1)";
-    ctx.lineWidth = 20;
-    ctx.strokeStyle = "rgba(100, 255, 255, 0.8)";
-    ctx.beginPath();
-    ctx.moveTo(100, cyCanvas);
-    ctx.lineTo(512 - 100, cyCanvas);
-    ctx.stroke();
-    ctx.restore();
-  }
-
-  const auraTex = new THREE.CanvasTexture(auraCanvas);
-  const auraMat = new THREE.MeshBasicMaterial({
-    map: auraTex,
-    transparent: true,
-    blending: THREE.AdditiveBlending,
-    depthWrite: false,
-    opacity: 0.9,
-  });
-
-  const auraGeom = new THREE.PlaneGeometry(w, h);
-  const auraMesh = new THREE.Mesh(auraGeom, auraMat);
-  auraMesh.position.set(cx, cy, -0.01);
-
-  const group = new THREE.Group();
-  group.add(auraMesh);
-  group.add(mesh);
-
-  return group;
+  return mesh;
 }

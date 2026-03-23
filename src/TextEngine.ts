@@ -1,3 +1,4 @@
+/// <reference types="three" />
 import { loadHarfBuzzOnce, shapeArabic } from "./harfbuzz";
 import { buildMSDFMeshFromShaping } from "./msdfBuilder";
 const THREE = (window as any).THREE;
@@ -168,7 +169,7 @@ async function createMeshCore(
   const color = opts.color !== undefined ? opts.color : 0xffffff;
   const align = opts.align || "center";
   
-  const key = `${langKey}:${text}:${scale}:${color}:${align}:${opts.isGlow}`;
+  const key = `${langKey}:${text}:${scale}:${color}:${align}`;
   if (meshCache.has(key)) return meshCache.get(key)!.clone();
 
   const data = fontsData[langKey];
@@ -189,8 +190,7 @@ async function createMeshCore(
     data.texture,
     scale,
     color,
-    align,
-    opts.isGlow,
+    align
   );
   
   meshCache.set(key, mesh);

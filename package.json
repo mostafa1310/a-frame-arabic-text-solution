@@ -12,6 +12,12 @@
   "license": "ISC",
   "type": "commonjs",
   "devDependencies": {
-    "esbuild": "^0.27.4"
+    "@types/three": "^0.183.1",
+    "esbuild": "^0.27.4",
+    "typescript": "^5.9.3"
+  },
+  "dependencies": {
+    "aframe": "^1.7.1",
+    "three": "^0.183.2"
   }
 }

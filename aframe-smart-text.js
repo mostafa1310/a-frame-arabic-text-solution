@@ -84,7 +84,7 @@ var SmartText = (() => {
 
   // src/msdfBuilder.ts
   var THREE = window.THREE;
-  function buildMSDFMeshFromShaping(shapingResult, atlasJson, atlasTexture, scale = 1, color = 16777215, align = "center", isGlow = false) {
+  function buildMSDFMeshFromShaping(shapingResult, atlasJson, atlasTexture, scale = 1, color = 16777215, align = "center") {
     const lines = Array.isArray(shapingResult) ? shapingResult : [shapingResult];
     const positions = [];
     const uvs = [];
@@ -229,70 +229,7 @@ var SmartText = (() => {
       transparent: true
     });
     const mesh = new THREE.Mesh(geom, mat);
-    if (!isGlow) {
-      return mesh;
-    }
-    let w = 1;
-    let h = 0.3 * scale;
-    let cx = 0;
-    let cy = 0;
-    if (positions.length > 0) {
-      let minX = Infinity, maxX = -Infinity;
-      let minY = Infinity, maxY = -Infinity;
-      for (let i = 0; i < positions.length; i += 3) {
-        if (positions[i] < minX) minX = positions[i];
-        if (positions[i] > maxX) maxX = positions[i];
-        if (positions[i + 1] < minY) minY = positions[i + 1];
-        if (positions[i + 1] > maxY) maxY = positions[i + 1];
-      }
-      w = (maxX - minX) * 1.6;
-      h = Math.max((maxY - minY) * 1.5, 0.4 * scale);
-      cx = (minX + maxX) / 2;
-      cy = (minY + maxY) / 2;
-    }
-    const auraCanvas = document.createElement("canvas");
-    auraCanvas.width = 512;
-    auraCanvas.height = 128;
-    const ctx = auraCanvas.getContext("2d");
-    if (ctx) {
-      ctx.clearRect(0, 0, 512, 128);
-      const cyCanvas = 64;
-      ctx.save();
-      ctx.lineCap = "round";
-      ctx.shadowBlur = 40;
-      ctx.shadowColor = "rgba(0, 120, 255, 1)";
-      ctx.lineWidth = 40;
-      ctx.strokeStyle = "rgba(0, 150, 255, 0.5)";
-      ctx.beginPath();
-      ctx.moveTo(80, cyCanvas);
-      ctx.lineTo(512 - 80, cyCanvas);
-      ctx.stroke();
-      ctx.stroke();
-      ctx.shadowBlur = 20;
-      ctx.shadowColor = "rgba(80, 220, 255, 1)";
-      ctx.lineWidth = 20;
-      ctx.strokeStyle = "rgba(100, 255, 255, 0.8)";
-      ctx.beginPath();
-      ctx.moveTo(100, cyCanvas);
-      ctx.lineTo(512 - 100, cyCanvas);
-      ctx.stroke();
-      ctx.restore();
-    }
-    const auraTex = new THREE.CanvasTexture(auraCanvas);
-    const auraMat = new THREE.MeshBasicMaterial({
-      map: auraTex,
-      transparent: true,
-      blending: THREE.AdditiveBlending,
-      depthWrite: false,
-      opacity: 0.9
-    });
-    const auraGeom = new THREE.PlaneGeometry(w, h);
-    const auraMesh = new THREE.Mesh(auraGeom, auraMat);
-    auraMesh.position.set(cx, cy, -0.01);
-    const group = new THREE.Group();
-    group.add(auraMesh);
-    group.add(mesh);
-    return group;
+    return mesh;
   }
 
   // src/TextEngine.ts
@@ -425,7 +362,7 @@ var SmartText = (() => {
     const scale = opts.scale || (langKey === "ar" ? 0.1 : 1);
     const color = opts.color !== void 0 ? opts.color : 16777215;
     const align = opts.align || "center";
-    const key = `${langKey}:${text}:${scale}:${color}:${align}:${opts.isGlow}`;
+    const key = `${langKey}:${text}:${scale}:${color}:${align}`;
     if (meshCache.has(key)) return meshCache.get(key).clone();
     const data = fontsData[langKey];
     if (!data.atlasJson || !data.buffer || !data.texture)
@@ -441,8 +378,7 @@ var SmartText = (() => {
       data.texture,
       scale,
       color,
-      align,
-      opts.isGlow
+      align
     );
     meshCache.set(key, mesh);
     return mesh.clone();
@@ -474,8 +410,7 @@ var SmartText = (() => {
             // Can be A-Frame font like 'roboto' or CDN URL.
             size: { default: 1 },
             color: { type: "string", default: "#ffffff" },
-            align: { default: "center" },
-            glow: { type: "boolean", default: false }
+            align: { default: "center" }
           },
           async update(oldData) {
             if (oldData && oldData.value === this.data.value && oldData.lang === this.data.lang && oldData.font === this.data.font && oldData.size === this.data.size && oldData.color === this.data.color && oldData.align === this.data.align)
@@ -491,14 +426,6 @@ var SmartText = (() => {
             if (this._textEntity) {
               this.el.removeChild(this._textEntity);
               this._textEntity = null;
-            }
-            if (this._glowMesh) {
-              this.el.object3D.remove(this._glowMesh);
-              this._glowMesh.traverse((node) => {
-                if (node.geometry) node.geometry.dispose();
-                if (node.material) node.material.dispose();
-              });
-              this._glowMesh = null;
             }
             if (!this.data.value) return;
             if (this.data.lang === "en" && this.data.font) {
@@ -542,8 +469,7 @@ var SmartText = (() => {
                 mesh = await createMesh(this.data.value, {
                   scale: this.data.size,
                   color: this.data.color,
-                  align: this.data.align,
-                  isGlow: this.data.glow
+                  align: this.data.align
                 });
               }
             } catch (err) {

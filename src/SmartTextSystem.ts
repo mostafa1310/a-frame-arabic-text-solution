@@ -38,7 +38,6 @@ export async function initSmartTextSystem() {
           size: { default: 1 },
           color: { type: "string", default: "#ffffff" },
           align: { default: "center" },
-          glow: { type: "boolean", default: false },
         },
 
         async update(oldData: any) {
@@ -69,15 +68,6 @@ export async function initSmartTextSystem() {
             this._textEntity = null;
           }
 
-          // Cleanup glow mesh if it exists (Legacy handling, now unified in _mesh)
-          if (this._glowMesh) {
-            this.el.object3D.remove(this._glowMesh);
-            this._glowMesh.traverse((node: any) => {
-              if (node.geometry) node.geometry.dispose();
-              if (node.material) node.material.dispose();
-            });
-            this._glowMesh = null;
-          }
 
           if (!this.data.value) return;
 
@@ -108,7 +98,7 @@ export async function initSmartTextSystem() {
           // Arabic ALWAYS uses this path. English uses it if `font` is omitted.
           const waitForFunction = async (fnName: string) => {
             if ((window as any)[fnName]) return;
-            return new Promise<void>((resolve) => {
+            return new Promise<void>((resolve: () => void) => {
               const interval = setInterval(() => {
                 if ((window as any)[fnName]) {
                   clearInterval(interval);
@@ -134,7 +124,6 @@ export async function initSmartTextSystem() {
                 scale: this.data.size,
                 color: this.data.color,
                 align: this.data.align,
-                isGlow: this.data.glow,
               });
             }
           } catch (err) {

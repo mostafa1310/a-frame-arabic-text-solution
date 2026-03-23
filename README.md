@@ -5,9 +5,10 @@ A complete, lightweight solution for accurately rendering complex text in WebAR 
 ## ✨ Features
 - **Accurate Arabic Text:** Uses HarfBuzz via WebAssembly to precisely shape Arabic text contexts and ligatures.
 - **MSDF Font Rendering:** Uses Multi-Channel Signed Distance Fields for smooth, infinitely scalable text rendering in WebGL.
-- **Custom Glow Effects:** Built-in aura/glow capabilities to highlight text beautifully in AR/VR.
 - **A-Frame Native:** Implemented explicitly as an A-Frame component `<a-entity smart-text="..."></a-entity>` for drop-in usage.
 - **Standalone:** Avoids duplicating `THREE.js` inside the bundle heavily reducing load times.
+
+*(Note: The custom glow code present in earlier versions has been removed to simplify and improve performance.)*
 
 ---
 
@@ -22,7 +23,7 @@ Because browsers enforce security restrictions against loading local `.json`, `.
    npx serve .
    ```
    *(Alternatively: use VSCode's "Live Server" extension, or `python -m http.server 3000`)*
-3. Open `http://localhost:3000` in your web browser. You'll see the A-Frame scene render both English and glowing Arabic text correctly!
+3. Open `http://localhost:3000` in your web browser. You'll see the A-Frame scene render both English and Arabic text correctly!
 
 ---
 
@@ -30,7 +31,7 @@ Because browsers enforce security restrictions against loading local `.json`, `.
 
 1. **Include A-Frame:** (If not already present in your `<head>`)
    ```html
-   <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
+   <script src="https://aframe.io/releases/1.7.1/aframe.min.js"></script>
    ```
 
 2. **Copy the Required Files to your project:**
@@ -55,7 +56,7 @@ Because browsers enforce security restrictions against loading local `.json`, `.
 5. **Use the Component!**
    Drop it into your A-Frame `<a-scene>`:
    ```html
-   <a-entity smart-text="value: مرحبا بالعالم; lang: ar; color: #ffeb3b; size: 2; align: center; glow: true;" position="0 1.5 -3"></a-entity>
+   <a-entity smart-text="value: مرحبا بالعالم; lang: ar; color: #ffeb3b; size: 2; align: center;" position="0 1.5 -3"></a-entity>
    ```
 
 ---
