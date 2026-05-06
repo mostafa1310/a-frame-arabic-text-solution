@@ -8,13 +8,7 @@ declare global {
   }
 }
 
-/**
- * Initializes the connection between TextEngine (Arabic/English)
- * and A-Frame via a custom 'smart-text' component.
- * This function should be called after AFRAME is loaded.
- */
 export async function initSmartTextSystem() {
-  // 1. Initialize the Text Engine (wasm/fonts)
   await TextEngine.initTextEngine();
 
   // 2. Expose helpers to window for easy access in A-Frame component
@@ -38,6 +32,12 @@ export async function initSmartTextSystem() {
           size: { default: 1 },
           color: { type: "string", default: "#ffffff" },
           align: { default: "center" },
+          glow: { type: "boolean", default: false },
+          bold: { type: "boolean", default: false },
+          weight: { type: "number", default: 0.0 },
+          depth: { type: "number", default: 0.0 },
+          lineHeight: { type: "number", default: 1.0 },
+          valign: { default: "center" },
         },
 
         async update(oldData: any) {
@@ -48,7 +48,12 @@ export async function initSmartTextSystem() {
             oldData.font === this.data.font &&
             oldData.size === this.data.size &&
             oldData.color === this.data.color &&
-            oldData.align === this.data.align
+            oldData.align === this.data.align &&
+            oldData.bold === this.data.bold &&
+            oldData.weight === this.data.weight &&
+            oldData.depth === this.data.depth &&
+            oldData.lineHeight === this.data.lineHeight &&
+            oldData.valign === this.data.valign
           )
             return;
 
@@ -62,59 +67,42 @@ export async function initSmartTextSystem() {
             this._mesh = null;
           }
 
-          // Cleanup previous A-Frame native text entity
-          if (this._textEntity) {
-            this.el.removeChild(this._textEntity);
-            this._textEntity = null;
+          // Cleanup previous A-Frame native text component
+          if (this.el.hasAttribute("text")) {
+            this.el.removeAttribute("text");
           }
 
+          // Cleanup glow mesh if it exists
+          if (this._glowMesh) {
+            this.el.object3D.remove(this._glowMesh);
+            this._glowMesh.traverse((node: any) => {
+              if (node.geometry) node.geometry.dispose();
+              if (node.material) node.material.dispose();
+            });
+            this._glowMesh = null;
+          }
 
           if (!this.data.value) return;
 
-          // --- A-FRAME NATIVE TEXT PATH ---
-          // If Language is English AND a custom A-Frame font path/name is provided
-          // We bypass generating a mesh entirely and leverage the standard text component
-          if (this.data.lang === "en" && this.data.font) {
-            const textEntity = document.createElement("a-entity") as any;
-            textEntity.setAttribute("text", {
+          if (
+            this.data.lang !== "ar" &&
+            this.data.font &&
+            !this.data.glow &&
+            this.data.depth <= 0
+          ) {
+            this.el.setAttribute("text", {
               value: this.data.value,
               font: this.data.font,
               color: this.data.color,
               align: this.data.align,
-              // Convert scale to A-frame equivalent text size modifiers if needed,
-              // though scaling the parent entity works just as well.
-              width: this.data.size * 5, // A-frame text width is arbitrary, tuning this to roughly match msdf output
+              width: this.data.size * 2, // Approximate width for native text
+              baseline: this.data.valign,
             });
-            
-            // Adjust to center appropriately based on our previous sizing
-            textEntity.object3D.scale.set(this.data.size, this.data.size, this.data.size);
-
-            this.el.appendChild(textEntity);
-            this._textEntity = textEntity;
             return;
           }
 
-          // --- HARFBUZZ / CUSTOM MSDF TEXT PATH ---
-          // Arabic ALWAYS uses this path. English uses it if `font` is omitted.
-          const waitForFunction = async (fnName: string) => {
-            if ((window as any)[fnName]) return;
-            return new Promise<void>((resolve: () => void) => {
-              const interval = setInterval(() => {
-                if ((window as any)[fnName]) {
-                  clearInterval(interval);
-                  resolve();
-                }
-              }, 50);
-              setTimeout(() => {
-                clearInterval(interval);
-                resolve();
-              }, 5000);
-            });
-          };
-
           const fnName =
             this.data.lang === "ar" ? "createArabicMesh" : "createEnglishMesh";
-          await waitForFunction(fnName);
 
           let mesh;
           try {
@@ -124,6 +112,12 @@ export async function initSmartTextSystem() {
                 scale: this.data.size,
                 color: this.data.color,
                 align: this.data.align,
+                isGlow: this.data.glow,
+                bold: this.data.bold,
+                weight: this.data.weight,
+                depth: this.data.depth,
+                lineHeight: this.data.lineHeight,
+                valign: this.data.valign,
               });
             }
           } catch (err) {
@@ -131,9 +125,7 @@ export async function initSmartTextSystem() {
             return;
           }
 
-          if (!mesh) {
-            return;
-          }
+          if (!mesh) return;
 
           this._mesh = mesh;
           this.el.object3D.add(mesh);

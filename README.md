@@ -4,60 +4,70 @@ A complete, lightweight solution for accurately rendering complex text in WebAR 
 
 ## ✨ Features
 - **Accurate Arabic Text:** Uses HarfBuzz via WebAssembly to precisely shape Arabic text contexts and ligatures.
-- **MSDF Font Rendering:** Uses Multi-Channel Signed Distance Fields for smooth, infinitely scalable text rendering in WebGL.
-- **A-Frame Native:** Implemented explicitly as an A-Frame component `<a-entity smart-text="..."></a-entity>` for drop-in usage.
-- **Standalone:** Avoids duplicating `THREE.js` inside the bundle heavily reducing load times.
-
-*(Note: The custom glow code present in earlier versions has been removed to simplify and improve performance.)*
+- **3D Extruded Text:** Create depth by stacking MSDF layers with the `depth` property.
+- **Variable Weight:** Fine-tune text thickness with the `weight` property (independent of font file).
+- **Neon Glow:** Add a dynamic aura/glow effect behind your text with the `glow: true` toggle.
+- **MSDF Font Rendering:** Uses Multi-Channel Signed Distance Fields for smooth, infinitely scalable text rendering.
+- **Advanced Layout:** Control `lineHeight`, `align`, and `valign` (top/center/bottom).
+- **Native Fallback:** Automatically falls back to A-Frame native text for English when a standard font is provided.
 
 ---
 
 ## 🚀 Quick Start (Testing the solution)
 
-Because browsers enforce security restrictions against loading local `.json`, `.wasm`, and `.ttf` files over the `file://` protocol, **you must use a local HTTP server** to test the `index.html`.
+Because browsers enforce security restrictions against loading local files, **you must use a local HTTP server**.
 
-### The Easiest Way:
 1. Open this folder in your terminal.
-2. Run a simple local server using `npx`:
-   ```bash
-   npx serve .
-   ```
-   *(Alternatively: use VSCode's "Live Server" extension, or `python -m http.server 3000`)*
-3. Open `http://localhost:3000` in your web browser. You'll see the A-Frame scene render both English and Arabic text correctly!
+2. Run: `npx serve .`
+3. Open `http://localhost:3000`. You'll see the 3D Arabic and English examples.
 
 ---
 
-## 📦 How to Integrate It Into Your Own Project
+## 📦 How to Integrate It
 
-1. **Include A-Frame:** (If not already present in your `<head>`)
+1. **Include A-Frame & Script:**
    ```html
    <script src="https://aframe.io/releases/1.7.1/aframe.min.js"></script>
-   ```
-
-2. **Copy the Required Files to your project:**
-   Make sure you copy the `fonts/` folder, the `harfbuzz/` folder, and `aframe-smart-text.js` file into your project's public directory.
-
-3. **Include the Bundled Script:** 
-   Add this directly after A-Frame.
-   ```html
    <script src="aframe-smart-text.js"></script>
    ```
 
-4. **Initialize the Text Engine:**
-   You must initialize it before rendering the scene components.
-   ```html
-   <script>
-     window.onload = () => {
-       SmartText.initSmartTextSystem();
-     };
-   </script>
+2. **Initialize:**
+   ```javascript
+   window.onload = () => SmartText.initSmartTextSystem();
    ```
 
-5. **Use the Component!**
-   Drop it into your A-Frame `<a-scene>`:
+3. **Usage Examples:**
+
+   **Basic Arabic:**
    ```html
-   <a-entity smart-text="value: مرحبا بالعالم; lang: ar; color: #ffeb3b; size: 2; align: center;" position="0 1.5 -3"></a-entity>
+   <a-entity smart-text="value: مرحبا; lang: ar; size: 2;"></a-entity>
    ```
+
+   **3D Bold Arabic with Glow:**
+   ```html
+   <a-entity smart-text="value: نص ثلاثي الأبعاد; lang: ar; depth: 0.2; weight: 0.5; glow: true; color: #00ffff;"></a-entity>
+   ```
+
+   **English with custom Weight:**
+   ```html
+   <a-entity smart-text="value: 3D MSDF Text; depth: 0.1; weight: 0.3; color: #ff00ff;"></a-entity>
+   ```
+
+### Component Properties
+
+| Property | Default | Description |
+| :--- | :--- | :--- |
+| `value` | `""` | The text to display. |
+| `lang` | `"en"` | `"ar"` for Arabic (HarfBuzz path) or `"en"`. |
+| `size` | `1` | Font scale. |
+| `color` | `"#ffffff"` | Text color. |
+| `bold` | `false` | Switches to the Bold font variant if available. |
+| `weight` | `0.0` | Additional MSDF weight (0.0 to 1.0). |
+| `depth` | `0.0` | 3D extrusion depth. |
+| `glow` | `false` | Enables the neon aura effect. |
+| `lineHeight`| `1.0` | Vertical spacing between lines. |
+| `align` | `"center"` | Horizontal alignment (`left`, `center`, `right`). |
+| `valign` | `"center"` | Vertical alignment (`top`, `center`, `bottom`). |
 
 ---
 

@@ -1,20 +1,35 @@
-/// <reference types="three" />
 import { loadHarfBuzzOnce, shapeArabic } from "./harfbuzz";
 import { buildMSDFMeshFromShaping } from "./msdfBuilder";
-const THREE = (window as any).THREE;
+import * as THREE from "three";
 
 const FONT_CONFIG = {
   ar: {
-    ttf: "./fonts/Cairo-Regular.ttf",
-    json: "./fonts/Cairo-Regular-msdf.json",
-    png: "./fonts/Cairo-Regular.png",
+    regular: {
+      ttf: "/fonts/Cairo/Cairo-Regular.ttf",
+      json: "/fonts/Cairo/Cairo-Regular-msdf.json",
+      png: "/fonts/Cairo/Cairo-Regular.png",
+    },
+    bold: {
+      ttf: "/fonts/Cairo/Cairo-ExtraBold.ttf",
+      json: "/fonts/Cairo/Cairo-ExtraBold-msdf.json",
+      png: "/fonts/Cairo/Cairo-ExtraBold-msdf.png",
+    },
   },
   en: {
-    ttf: "./fonts/Cairo-Regular.ttf",
-    json: "./fonts/Cairo-Regular-msdf.json",
-    png: "./fonts/Cairo-Regular.png",
+    regular: {
+      ttf: "/fonts/Arimo/Arimo-Regular.ttf",
+      json: "/fonts/Arimo/Arimo-Regular-msdf.json",
+      png: "/fonts/Arimo/Arimo-Regular.png",
+    },
+    bold: {
+      ttf: "/fonts/Arimo/Arimo-Bold.ttf",
+      json: "/fonts/Arimo/Arimo-Bold-msdf.json",
+      png: "/fonts/Arimo/Arimo-Bold-msdf.png",
+    },
   },
 };
+
+type FontVariant = "regular" | "bold";
 
 interface FontData {
   buffer: ArrayBuffer | null;
@@ -22,89 +37,80 @@ interface FontData {
   texture: THREE.Texture | null;
 }
 
-const fontsData: Record<"ar" | "en", FontData> = {
-  ar: { buffer: null, atlasJson: null, texture: null },
-  en: { buffer: null, atlasJson: null, texture: null },
+const fontsData: Record<"ar" | "en", Record<FontVariant, FontData>> = {
+  ar: {
+    regular: { buffer: null, atlasJson: null, texture: null },
+    bold: { buffer: null, atlasJson: null, texture: null },
+  },
+  en: {
+    regular: { buffer: null, atlasJson: null, texture: null },
+    bold: { buffer: null, atlasJson: null, texture: null },
+  },
 };
 
 const meshCache = new Map<string, THREE.Object3D>();
 
 export async function initTextEngine() {
-  const loadFont = async (lang: "ar" | "en") => {
-    const config = FONT_CONFIG[lang];
-    const data = fontsData[lang];
+  const loadFont = async (lang: "ar" | "en", variant: FontVariant) => {
+    const config = FONT_CONFIG[lang][variant];
+    const data = fontsData[lang][variant];
 
-    if (!data.buffer) {
-      data.buffer = await fetch(config.ttf).then((r) => r.arrayBuffer());
+    if (config.ttf && !data.buffer) {
+      try {
+        data.buffer = await fetch(config.ttf).then((r) => {
+          if (!r.ok) throw new Error(`HTTP ${r.status}`);
+          return r.arrayBuffer();
+        });
+      } catch (e) {
+        console.warn(
+          `Font file not found: ${config.ttf} — ${variant} variant for ${lang} will be unavailable.`,
+        );
+        return;
+      }
     }
     if (!data.atlasJson) {
-      let rawJson = await fetch(config.json).then((r) => r.json());
-      data.texture = new THREE.TextureLoader().load(config.png);
-      data.atlasJson = normalizeAtlas(rawJson);
+      try {
+        let rawJson = await fetch(config.json).then((r) => {
+          if (!r.ok) throw new Error(`HTTP ${r.status}`);
+          return r.json();
+        });
+
+        // Ensure texture is fully loaded before continuing
+        data.texture = await new Promise<THREE.Texture>((resolve, reject) => {
+          new THREE.TextureLoader().load(
+            config.png,
+            (tex) => resolve(tex),
+            undefined,
+            (err) => reject(err),
+          );
+        });
+
+        data.atlasJson = normalizeAtlas(rawJson);
+      } catch (e) {
+        console.warn(
+          `Atlas files not found for ${lang} ${variant} — variant will be unavailable.`,
+        );
+        return;
+      }
     }
   };
 
-  await Promise.all([loadFont("ar"), loadFont("en")]);
+  await Promise.all([
+    loadFont("ar", "regular"),
+    loadFont("ar", "bold"),
+    loadFont("en", "regular"),
+    loadFont("en", "bold"),
+  ]);
 
   if (typeof window !== "undefined") {
-    const hb = await loadHarfBuzzOnce();
-
-    // Fix broken indices in MSDF JSON by asking HarfBuzz for the real glyph IDs
-    const repair = (lang: "ar" | "en") => {
-      const data = fontsData[lang];
-      if (data.buffer && data.atlasJson) {
-        console.log(`Starting Atlas Repair for ${lang}...`);
-        repairAtlasIndices(hb, data.buffer, data.atlasJson);
-        console.log(
-          `Atlas Repair Complete for ${lang}. Indices count:`,
-          Object.keys(data.atlasJson.glyphsByIndex).length,
-        );
-      }
-    };
-
-    repair("ar");
-    repair("en");
+    await loadHarfBuzzOnce();
   }
-}
-
-function repairAtlasIndices(hb: any, fontBuffer: ArrayBuffer, atlas: any) {
-  const blob = hb.createBlob(new Uint8Array(fontBuffer));
-  const face = hb.createFace(blob, 0);
-  const font = hb.createFont(face);
-
-  const chars = atlas.original?.chars || [];
-  let repairedCount = 0;
-
-  for (const char of chars) {
-    if (!char.id) continue;
-
-    const str = String.fromCharCode(char.id);
-
-    const buf = hb.createBuffer();
-    buf.addText(str);
-    hb.shape(font, buf);
-    const json = buf.json(font);
-    buf.destroy();
-
-    if (json && json.length > 0) {
-      const glyphId = json[0].g;
-
-      const info = atlas.glyphsByCodepoint[char.id];
-      if (info && glyphId !== 0) {
-        atlas.glyphsByIndex[glyphId] = info;
-        repairedCount++;
-      }
-    }
-  }
-  console.log(`Repaired ${repairedCount} glyph mappings.`);
-
-  font.destroy();
-  face.destroy();
-  blob.destroy();
 }
 
 function normalizeAtlas(json: any) {
-  const raw = json.glyphs || json.chars || json.charmap || json.items || [];
+  const raw = Array.isArray(json)
+    ? json
+    : json.glyphs || json.chars || json.charmap || json.items || [];
 
   let arr = Array.isArray(raw) ? raw : Object.values(raw);
 
@@ -124,26 +130,31 @@ function normalizeAtlas(json: any) {
       codepoint = g.code;
     }
 
+    const info = {
+      x: g.x ?? g.xoffset ?? 0,
+      y: g.y ?? g.yoffset ?? 0,
+      width: g.width ?? g.w ?? 0,
+      height: g.height ?? g.h ?? 0,
+      xoffset: g.xoffset ?? g.xoffset ?? 0,
+      yoffset: g.yoffset ?? g.yoffset ?? 0,
+      xadvance: g.xadvance ?? g.advance ?? g.xadvance ?? 0,
+      page: g.page ?? 0,
+      index: g.index, // Save the glyph index if available
+      planeBounds: g.planeBounds,
+      atlasBounds: g.atlasBounds,
+    };
+
     if (codepoint != null) {
-      const info = {
-        x: g.x ?? g.xoffset ?? 0,
-        y: g.y ?? g.yoffset ?? 0,
-        width: g.width ?? g.w ?? 0,
-        height: g.height ?? g.h ?? 0,
-        xoffset: g.xoffset ?? g.xoffset ?? 0,
-        yoffset: g.yoffset ?? g.yoffset ?? 0,
-        xadvance: g.xadvance ?? g.advance ?? g.xadvance ?? 0,
-        page: g.page ?? 0,
-        index: g.index, // Save the glyph index if available
-      };
-
       glyphsByCodepoint[codepoint] = info;
+    }
 
-      if (typeof g.index === "number") {
-        glyphsByIndex[g.index] = info;
-      }
+    if (typeof g.index === "number") {
+      glyphsByIndex[g.index] = info;
     }
   }
+
+  // Detect if this atlas has unicode-based mappings or only index-based
+  const hasUnicodeMappings = Object.keys(glyphsByCodepoint).length > 0;
 
   const pages = json.pages || json.pagesCount || (json.page ? [json.page] : []);
   const width = json.common?.scaleW ?? json.width ?? 512;
@@ -152,6 +163,7 @@ function normalizeAtlas(json: any) {
   return {
     glyphsByCodepoint,
     glyphsByIndex,
+    hasUnicodeMappings,
     pages,
     width,
     height,
@@ -159,27 +171,42 @@ function normalizeAtlas(json: any) {
   };
 }
 
-async function createMeshCore(
-  text: string,
-  langKey: "ar" | "en",
-  opts: any
+export async function createArabicMesh(
+  text,
+  opts: any = {
+    scale: 1,
+    color: 0xffffff,
+    weight: 0.0,
+    depth: 0.0,
+    bold: false,
+  },
 ) {
   await initTextEngine();
-  const scale = opts.scale || (langKey === "ar" ? 0.1 : 1); 
+  const scale = opts.scale || 0.1;
   const color = opts.color !== undefined ? opts.color : 0xffffff;
+  const weight = Number(opts.weight !== undefined ? opts.weight : 0.0);
+  const depth = Number(opts.depth !== undefined ? opts.depth : 0.0);
+  const lineHeight = Number(
+    opts.lineHeight !== undefined ? opts.lineHeight : 1.0,
+  );
+  const valign = opts.valign || "center";
+  const bold = !!opts.bold;
+
   const align = opts.align || "center";
-  
-  const key = `${langKey}:${text}:${scale}:${color}:${align}`;
+  const key = `ar:${text}:${scale}:${color}:${align}:${weight}:${depth}:${lineHeight}:${valign}:${bold}`;
   if (meshCache.has(key)) return meshCache.get(key)!.clone();
 
-  const data = fontsData[langKey];
-  if (!data.atlasJson || !data.buffer || !data.texture) 
-    throw new Error(`${langKey.toUpperCase()} fonts not loaded`);
+  // Select bold variant if requested and available, otherwise fall back to regular
+  const variant: FontVariant =
+    bold && fontsData.ar.bold.atlasJson ? "bold" : "regular";
+  const data = fontsData.ar[variant];
+  if (!data.atlasJson || !data.buffer || !data.texture)
+    throw new Error("Arabic fonts not loaded");
 
   const fontSize = data.atlasJson.original?.info?.size ?? 42;
   const lines = text.split(/\r\n|\n|\r/);
 
-  // Shape each line individually using HarfBuzz
+  // Shape each line individually
   const shapingResults = await Promise.all(
     lines.map((line) => shapeArabic(data.buffer!, line, fontSize)),
   );
@@ -190,23 +217,107 @@ async function createMeshCore(
     data.texture,
     scale,
     color,
-    align
+    align,
+    opts.isGlow,
+    weight,
+    depth,
+    lineHeight,
+    valign,
   );
-  
   meshCache.set(key, mesh);
   return mesh.clone();
 }
 
-export async function createArabicMesh(
-  text: string,
-  opts: any = { scale: 1, color: 0xffffff },
-) {
-  return createMeshCore(text, "ar", opts);
-}
-
 export async function createEnglishMesh(
-  text: string,
-  opts: any = { scale: 1, color: 0xffffff },
+  text,
+  opts: any = {
+    scale: 1,
+    color: 0xffffff,
+    weight: 0.0,
+    depth: 0.0,
+    bold: false,
+  },
 ) {
-  return createMeshCore(text, "en", opts);
+  await initTextEngine();
+  const scale = opts.scale || 1;
+  const color = opts.color !== undefined ? opts.color : 0xffffff;
+  const weight = Number(opts.weight !== undefined ? opts.weight : 0.0);
+  const depth = Number(opts.depth !== undefined ? opts.depth : 0.0);
+  const lineHeight = Number(
+    opts.lineHeight !== undefined ? opts.lineHeight : 1.0,
+  );
+  const valign = opts.valign || "center";
+  const bold = !!opts.bold;
+
+  const align = opts.align || "center";
+  const key = `en:${text}:${scale}:${color}:${align}:${weight}:${depth}:${lineHeight}:${valign}:${bold}`;
+  if (meshCache.has(key)) return meshCache.get(key)!.clone();
+
+  // Select bold variant if requested and available, otherwise fall back to regular
+  const variant: FontVariant =
+    bold && fontsData.en.bold.atlasJson ? "bold" : "regular";
+  const data = fontsData.en[variant];
+  if (!data.atlasJson || !data.buffer || !data.texture)
+    throw new Error("English fonts not loaded");
+
+  const fontSize = data.atlasJson.original?.info?.size ?? 42;
+  const lines = text.split(/\r\n|\n|\r/);
+
+  let shapingResults: any[];
+
+  if (data.atlasJson.hasUnicodeMappings) {
+    shapingResults = lines.map((line) => {
+      const glyphs: any[] = [];
+
+      for (let i = 0; i < line.length; i++) {
+        const codepoint = line.codePointAt(i);
+        if (codepoint === undefined) continue;
+
+        const glyphData = data.atlasJson.glyphsByCodepoint[codepoint];
+
+        if (glyphData) {
+          glyphs.push({
+            g: glyphData.index !== undefined ? glyphData.index : codepoint,
+            codepoint: codepoint,
+            ax: glyphData.xadvance,
+            dx: 0,
+            dy: 0,
+          });
+        } else if (line[i] === " ") {
+          const spaceData = data.atlasJson.glyphsByCodepoint[32];
+          glyphs.push({
+            g: spaceData?.index !== undefined ? spaceData.index : 32,
+            codepoint: 32,
+            ax: spaceData?.xadvance ?? fontSize * 0.3,
+            dx: 0,
+            dy: 0,
+          });
+        }
+        if (codepoint > 0xffff) i++;
+      }
+      return { glyphs };
+    });
+  } else {
+    // HarfBuzz path: font atlas only has glyph indices (Arimo-Bold from msdf-atlas-gen)
+    // Shape with HarfBuzz to get proper glyph IDs that match the atlas indices
+    shapingResults = await Promise.all(
+      lines.map((line) => shapeArabic(data.buffer!, line, fontSize)),
+    );
+  }
+
+  const mesh = buildMSDFMeshFromShaping(
+    shapingResults,
+    data.atlasJson,
+    data.texture,
+    scale,
+    color,
+    align,
+    opts.isGlow,
+    weight,
+    depth,
+    lineHeight,
+    valign,
+  );
+  meshCache.set(key, mesh);
+  return mesh.clone();
 }

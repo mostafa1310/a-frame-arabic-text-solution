@@ -1,5 +1,3 @@
-// src/app/text/harfbuzz.ts
-// This file must run in the browser (client-side) only.
 let hbModulePromise: Promise<any> | null = null;
 
 export function loadHarfBuzzOnce() {
@@ -7,7 +5,6 @@ export function loadHarfBuzzOnce() {
 
   hbModulePromise = new Promise(async (resolve, reject) => {
     try {
-      // Helper to load a script
       const loadScript = (src: string) => {
         return new Promise<void>((res, rej) => {
           if (document.querySelector(`script[src="${src}"]`)) {
@@ -24,13 +21,11 @@ export function loadHarfBuzzOnce() {
         });
       };
 
-      // Load both scripts (order doesn't strictly matter for defining globals, but safest to load both)
       await Promise.all([
-        loadScript("./harfbuzz/hb.js"),
-        loadScript("./harfbuzz/hbjs.js"),
+        loadScript("/harfbuzz/hb.js"),
+        loadScript("/harfbuzz/hbjs.js"),
       ]);
 
-      // Now use them
       if (
         typeof (window as any).createHarfBuzz === "function" &&
         typeof (window as any).hbjs === "function"
@@ -53,7 +48,6 @@ export function loadHarfBuzzOnce() {
   return hbModulePromise;
 }
 
-// helper: shape text
 export async function shapeArabic(
   fontArrayBuffer: ArrayBuffer,
   text: string,

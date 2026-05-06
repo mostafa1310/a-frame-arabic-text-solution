@@ -16,12 +16,14 @@
 <body>
   <a-scene>
     <!-- Add some smart text elements -->
-    <a-entity smart-text="value: مرحبا بالعالم; lang: ar; color: #ff0055; size: 3; align: center;" position="0 2 -3"></a-entity>
+    <!-- 3D Arabic with Glow -->
+    <a-entity smart-text="value: مرحبا بالعالم; lang: ar; color: #ff0055; size: 2.5; align: center; depth: 0.15; glow: true; weight: 0.2;" position="0 2.5 -4"></a-entity>
     
-    <a-entity smart-text="value: Hello World; lang: en; color: #00ffcc; size: 2; align: center;" position="0 0.5 -3"></a-entity>
+    <!-- 3D English Text -->
+    <a-entity smart-text="value: 3D ARABIC XR; lang: en; color: #00ffcc; size: 1.5; align: center; depth: 0.1; weight: 0.1;" position="0 1 -4"></a-entity>
 
     <a-camera position="0 1.6 0"></a-camera>
-    <a-sky color="#111"></a-sky>
+    <a-sky color="#050505"></a-sky>
   </a-scene>
 </body>
 </html>
